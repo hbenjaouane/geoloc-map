@@ -3,7 +3,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Géolocalisation Cellulaire</title>
+  <title>Géolocalisation Cellulaire (Mylnikov)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -17,57 +17,42 @@
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const mcc = parseInt(params.get("mobileCountryCode"));
-    const mnc = parseInt(params.get("mobileNetworkCode"));
-    const lac = parseInt(params.get("locationAreaCode"));
-    const cid = parseInt(params.get("cellId"));
+    const mcc = params.get("mobileCountryCode");
+    const mnc = params.get("mobileNetworkCode");
+    const lac = params.get("locationAreaCode");
+    const cid = params.get("cellId");
 
-    const cells = [cid].concat(
-      ["cell1", "cell2", "cell3", "cell4"]
-        .map(key => parseInt(params.get(key)))
-        .filter(val => !isNaN(val))
-    );
+    const url = `https://api.mylnikov.org/geolocation/cell?v=1.1&mcc=${mcc}&mnc=${mnc}&lac=${lac}&cid=${cid}`;
 
-    const cellTowers = cells.map(cellId => ({
-      radioType: "gsm",
-      mobileCountryCode: mcc,
-      mobileNetworkCode: mnc,
-      locationAreaCode: lac,
-      cellId: cellId
-    }));
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        if (data.result !== 200) throw new Error("Position non trouvée");
 
-    fetch("https://location.services.mozilla.com/v1/geolocate?key=test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cellTowers })
-    })
-    .then(response => response.json())
-    .then(data => {
-      const lat = data.location.lat;
-      const lng = data.location.lng;
-      const accuracy = data.accuracy || 1000;
+        const lat = data.data.lat;
+        const lng = data.data.lon;
+        const accuracy = data.data.range || 1000;
 
-      const map = L.map('map').setView([lat, lng], 16);
+        const map = L.map('map').setView([lat, lng], 16);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-      L.marker([lat, lng]).addTo(map)
-        .bindPopup(`Position estimée (±${Math.round(accuracy)}m)`)
-        .openPopup();
+        L.marker([lat, lng]).addTo(map)
+          .bindPopup(`Position estimée (±${Math.round(accuracy)}m)`)
+          .openPopup();
 
-      L.circle([lat, lng], {
-        radius: accuracy,
-        color: 'blue',
-        fillOpacity: 0.2
-      }).addTo(map);
-    })
-    .catch(err => {
-      document.getElementById("map").innerHTML = "<p>Erreur de géolocalisation.</p>";
-      console.error(err);
-    });
+        L.circle([lat, lng], {
+          radius: accuracy,
+          color: 'blue',
+          fillOpacity: 0.2
+        }).addTo(map);
+      })
+      .catch(err => {
+        document.getElementById("map").innerHTML = "<p>Erreur de géolocalisation.</p>";
+        console.error(err);
+      });
   </script>
 </body>
 </html>
-
